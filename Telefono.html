@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rastreador GPS</title>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="GPS.png">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #333;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+      color: #007BFF;
+    }
+
+    form {
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    input[type="text"] {
+      width: 80%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+
+    button {
+      background-color: #007BFF;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    p {
+      margin-top: 20px;
+      font-size: 1rem;
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.9.3/firebase-app.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.9.3/firebase-database.js";
+
+    // Configuración de Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyBNGJg344QHK4iTUwuaCWaiZVIj4ms2mFY",
+      authDomain: "gpstelefono-58c74.firebaseapp.com",
+      databaseURL: "https://gpstelefono-58c74-default-rtdb.firebaseio.com",
+      projectId: "gpstelefono-58c74",
+      storageBucket: "gpstelefono-58c74.firebasestorage.app",
+      messagingSenderId: "167351189046",
+      appId: "1:167351189046:web:a2fe53c17fae891465e297"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    // Función para enviar la ubicación a Firebase
+    const sendLocation = (vehicleId, latitude, longitude) => {
+      const locationRef = ref(database, `locations/${vehicleId}`);
+      set(locationRef, {
+        latitude: latitude,
+        longitude: longitude,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`Ubicación de ${vehicleId} enviada: ${latitude}, ${longitude}`);
+    };
+
+    // Función para iniciar el rastreo del GPS
+    const startTracking = (vehicleName) => {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition((position) => {
+          const { latitude, longitude } = position.coords;
+          sendLocation(vehicleName, latitude, longitude); // Enviar ubicación con el nombre del vehículo
+        }, (error) => {
+          console.error("Error obteniendo la ubicación: ", error);
+        });
+      } else {
+        console.log("Geolocalización no está soportada en este dispositivo.");
+      }
+    };
+
+    // Manejar el evento del formulario
+    window.onload = () => {
+      const form = document.getElementById("vehicle-form");
+      form.addEventListener("submit", (event) => {
+        event.preventDefault(); // Prevenir la recarga de la página
+        const vehicleName = document.getElementById("vehicle-name").value.trim();
+        if (vehicleName) {
+          document.getElementById("status").textContent = `Rastreando: ${vehicleName}`;
+          startTracking(vehicleName); // Iniciar el rastreo con el nombre ingresado
+        } else {
+          alert("Por favor, ingresa el nombre del vehículo.");
+        }
+      });
+    };
+  </script>
+</head>
+<body>
+  <h1>Rastreador GPS</h1>
+  <form id="vehicle-form">
+    <input type="text" id="vehicle-name" placeholder="Nombre del vehículo" required />
+    <button type="submit">Iniciar Rastreo</button>
+  </form>
+  <p id="status">Esperando para rastrear...</p>
+</body>
+</html>
