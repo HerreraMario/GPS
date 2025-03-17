@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPS</title>
+  <link rel="icon" type="image/png" href="GPS.png">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #333;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+      color: #007BFF;
+    }
+
+    form {
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    input, button {
+      width: 80%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+
+    button {
+      background-color: #007BFF;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    p {
+      margin-top: 20px;
+      font-size: 1rem;
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.9.3/firebase-app.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.9.3/firebase-database.js";
+
+    // Configuración de Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyBNGJg344QHK4iTUwuaCWaiZVIj4ms2mFY",
+      authDomain: "gpstelefono-58c74.firebaseapp.com",
+      databaseURL: "https://gpstelefono-58c74-default-rtdb.firebaseio.com",
+      projectId: "gpstelefono-58c74",
+      storageBucket: "gpstelefono-58c74.firebasestorage.app",
+      messagingSenderId: "167351189046",
+      appId: "1:167351189046:web:a2fe53c17fae891465e297"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    let isTracking = false; // Estado del GPS
+
+    // Guardar y recuperar el estado del GPS
+    const saveState = (vehicleName) => {
+      localStorage.setItem("gpsState", JSON.stringify({ isTracking, vehicleName }));
+    };
+
+    const loadState = () => {
+      const state = JSON.parse(localStorage.getItem("gpsState"));
+      isTracking = state?.isTracking || false;
+      const vehicleName = state?.vehicleName || "";
+      document.getElementById("vehicle-name").value = vehicleName;
+      document.getElementById("toggle-gps").textContent = isTracking ? "Desactivar GPS" : "Activar GPS";
+      document.getElementById("status").textContent = isTracking ? `GPS Activado: ${vehicleName}` : "GPS Desactivado";
+    };
+
+    // Enviar ubicación y estado de la batería a Firebase
+    const sendLocation = async (vehicleId, latitude, longitude) => {
+      const battery = await navigator.getBattery();
+      const locationRef = ref(database, `locations/${vehicleId}`);
+      set(locationRef, {
+        latitude: latitude,
+        longitude: longitude,
+        batteryLevel: Math.round(battery.level * 100),
+        charging: battery.charging
+      });
+      console.log(`Ubicación enviada: ${latitude}, ${longitude}`);
+    };
+
+    // Activar o desactivar el GPS
+    const toggleGPS = () => {
+      const vehicleName = document.getElementById("vehicle-name").value.trim();
+      if (!vehicleName) {
+        alert("Por favor, ingresa el nombre del vehículo.");
+        return;
+      }
+
+      const button = document.getElementById("toggle-gps");
+      const status = document.getElementById("status");
+
+      if (isTracking) {
+        // Desactivar GPS
+        isTracking = false;
+        button.textContent = "Activar GPS";
+        status.textContent = "GPS Desactivado";
+        saveState(vehicleName);
+        console.log("GPS Desactivado.");
+      } else {
+        // Activar GPS
+        isTracking = true;
+        button.textContent = "Desactivar GPS";
+        status.textContent = `GPS Activado: ${vehicleName}`;
+        saveState(vehicleName);
+        if (navigator.geolocation) {
+          navigator.geolocation.watchPosition((position) => {
+            if (isTracking) {
+              const { latitude, longitude } = position.coords;
+              sendLocation(vehicleName, latitude, longitude);
+            }
+          }, (error) => {
+            console.error("Error obteniendo ubicación: ", error);
+          });
+        } else {
+          alert("Geolocalización no está soportada en este dispositivo.");
+        }
+        console.log("GPS Activado.");
+      }
+    };
+
+    // Manejo de la clave secreta y configuración inicial
+    window.onload = () => {
+      loadState();
+      const button = document.getElementById("toggle-gps");
+      button.addEventListener("click", () => {
+        const password = prompt("Ingresa la clave secreta:");
+        if (password === "001122") {
+          toggleGPS();
+        } else {
+          alert("Clave incorrecta.");
+        }
+      });
+    };
+  </script>
+</head>
+<body>
+  <h1>GPS</h1>
+  <form>
+    <input id="vehicle-name" type="text" placeholder="Nombre del vehículo" required />
+    <button id="toggle-gps" type="button">Activar GPS</button>
+  </form>
+  <p id="status">GPS Desactivado</p>
+</body>
+</html>
