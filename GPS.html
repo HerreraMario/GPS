@@ -75,21 +75,25 @@
 
     let isTracking = false; // Estado del GPS
 
-    // Guardar y recuperar el estado del GPS
+    // Guardar el estado del GPS y el nombre del vehículo
     const saveState = (vehicleName) => {
       localStorage.setItem("gpsState", JSON.stringify({ isTracking, vehicleName }));
     };
 
+    // Cargar el estado del GPS y el nombre del vehículo
     const loadState = () => {
       const state = JSON.parse(localStorage.getItem("gpsState"));
-      isTracking = state?.isTracking || false;
-      const vehicleName = state?.vehicleName || "";
-      document.getElementById("vehicle-name").value = vehicleName;
-      document.getElementById("toggle-gps").textContent = isTracking ? "Desactivar GPS" : "Activar GPS";
-      document.getElementById("status").textContent = isTracking ? `GPS Activado: ${vehicleName}` : "GPS Desactivado";
+      if (state) {
+        isTracking = state.isTracking;
+        document.getElementById("vehicle-name").value = state.vehicleName || "";
+        document.getElementById("toggle-gps").textContent = isTracking ? "Desactivar GPS" : "Activar GPS";
+        document.getElementById("status").textContent = isTracking
+          ? `GPS Activado: ${state.vehicleName}`
+          : "GPS Desactivado";
+      }
     };
 
-    // Enviar ubicación y estado de la batería a Firebase
+    // Enviar ubicación a Firebase
     const sendLocation = async (vehicleId, latitude, longitude) => {
       const battery = await navigator.getBattery();
       const locationRef = ref(database, `locations/${vehicleId}`);
@@ -102,11 +106,18 @@
       console.log(`Ubicación enviada: ${latitude}, ${longitude}`);
     };
 
-    // Activar o desactivar el GPS
+    // Alternar GPS (activar/desactivar manualmente)
     const toggleGPS = () => {
       const vehicleName = document.getElementById("vehicle-name").value.trim();
       if (!vehicleName) {
-        alert("Por favor, ingresa el nombre del vehículo.");
+        alert("Por favor, ingresa el nombre del chofer o carro.");
+        return;
+      }
+
+      // Solicitar clave secreta solo al intentar cambiar el estado
+      const password = prompt("Ingresa la clave secreta para continuar:");
+      if (password !== "001122") {
+        alert("Clave incorrecta.");
         return;
       }
 
@@ -114,14 +125,12 @@
       const status = document.getElementById("status");
 
       if (isTracking) {
-        // Desactivar GPS
         isTracking = false;
         button.textContent = "Activar GPS";
         status.textContent = "GPS Desactivado";
         saveState(vehicleName);
         console.log("GPS Desactivado.");
       } else {
-        // Activar GPS
         isTracking = true;
         button.textContent = "Desactivar GPS";
         status.textContent = `GPS Activado: ${vehicleName}`;
@@ -142,25 +151,34 @@
       }
     };
 
-    // Manejo de la clave secreta y configuración inicial
+    // Inicializar la página y restaurar estado
     window.onload = () => {
       loadState();
       const button = document.getElementById("toggle-gps");
-      button.addEventListener("click", () => {
-        const password = prompt("Ingresa la clave secreta:");
-        if (password === "001122") {
-          toggleGPS();
-        } else {
-          alert("Clave incorrecta.");
+      button.addEventListener("click", toggleGPS);
+
+      // Si el GPS estaba activado, continuar el rastreo automáticamente sin pedir clave
+      if (isTracking) {
+        const vehicleName = document.getElementById("vehicle-name").value;
+        console.log("Reanudando envío de ubicación automáticamente...");
+        if (navigator.geolocation) {
+          navigator.geolocation.watchPosition((position) => {
+            if (isTracking) {
+              const { latitude, longitude } = position.coords;
+              sendLocation(vehicleName, latitude, longitude);
+            }
+          }, (error) => {
+            console.error("Error obteniendo ubicación: ", error);
+          });
         }
-      });
+      }
     };
   </script>
 </head>
 <body>
   <h1>GPS</h1>
   <form>
-    <input id="vehicle-name" type="text" placeholder="Nombre del vehículo" required />
+    <input id="vehicle-name" type="text" placeholder="Nombre del chofer o carro" required />
     <button id="toggle-gps" type="button">Activar GPS</button>
   </form>
   <p id="status">GPS Desactivado</p>
